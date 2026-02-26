@@ -32,6 +32,7 @@ import serverInfoRoutes from './routes/server-info.js';
 import codexLimitsRoutes from './routes/codex-limits.js';
 import claudeCodeLimitsRoutes from './routes/claude-code-limits.js';
 import versionRoutes from './routes/version.js';
+import channelsRoutes from './routes/channels.js';
 import versionCheckRoutes from './routes/version-check.js';
 import gatewayRoutes from './routes/gateway.js';
 import connectDefaultsRoutes from './routes/connect-defaults.js';
@@ -117,7 +118,7 @@ const routes = [
   codexLimitsRoutes, claudeCodeLimitsRoutes, versionRoutes, versionCheckRoutes,
   gatewayRoutes, connectDefaultsRoutes,
   workspaceRoutes, cronsRoutes, sessionsRoutes, skillsRoutes, filesRoutes, apiKeysRoutes,
-  voicePhrasesRoutes, fileBrowserRoutes,
+  voicePhrasesRoutes, fileBrowserRoutes, channelsRoutes,
 ];
 for (const route of routes) app.route('/', route);
 
