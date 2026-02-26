@@ -21,41 +21,45 @@ export async function checkHealth(cwd: string, targetVersion: string): Promise<H
   const baseUrl = `http://127.0.0.1:${port}`;
   const deadline = Date.now() + TOTAL_TIMEOUT;
 
+  let lastHealthy = false;
+  let lastReportedVersion: string | undefined;
+
   for (let attempt = 0; Date.now() < deadline; attempt++) {
-    // Wait before retrying (skip wait on first attempt)
     if (attempt > 0) {
       const backoff = BACKOFFS[Math.min(attempt - 1, BACKOFFS.length - 1)];
       await sleep(backoff);
     }
 
     try {
-      // 1. Readiness — GET /health expects 2xx
       const healthRes = await httpGet(`${baseUrl}/health`, REQUEST_TIMEOUT);
       if (healthRes.status < 200 || healthRes.status >= 300) continue;
 
-      // 2. Version — GET /api/version expects matching version
       const versionRes = await httpGet(`${baseUrl}/api/version`, REQUEST_TIMEOUT);
       if (versionRes.status < 200 || versionRes.status >= 300) continue;
 
       const data = JSON.parse(versionRes.body) as { version: string };
+      lastHealthy = true;
+      lastReportedVersion = data.version;
+
       if (data.version === targetVersion) {
         return { healthy: true, versionMatch: true, reportedVersion: data.version };
       }
 
-      // Version mismatch — may be stale process, keep retrying until deadline
-      if (Date.now() > deadline) {
-        return {
-          healthy: true,
-          versionMatch: false,
-          reportedVersion: data.version,
-          error: `Version mismatch: expected ${targetVersion}, got ${data.version}`,
-        };
-      }
+      // Version mismatch — stale process may still be serving, keep retrying
       continue;
     } catch {
-      // Connection refused, timeout, etc. — retry
       continue;
     }
+  }
+
+  // Deadline expired — report what we last saw
+  if (lastHealthy && lastReportedVersion) {
+    return {
+      healthy: true,
+      versionMatch: false,
+      reportedVersion: lastReportedVersion,
+      error: `Version mismatch: expected ${targetVersion}, got ${lastReportedVersion}`,
+    };
   }
 
   return {
