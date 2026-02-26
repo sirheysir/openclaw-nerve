@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { RefreshCw, Play, Plus, Trash2, Pencil, ChevronDown, ChevronRight, CheckCircle, XCircle, Circle, Loader2 } from 'lucide-react';
+import { RefreshCw, Play, Plus, Trash2, Pencil, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertTriangle, Circle, Loader2 } from 'lucide-react';
 import { useCrons, type CronJob, type CronRun } from '../hooks/useCrons';
 import { CronDialog } from './CronDialog';
 
@@ -106,6 +106,11 @@ function CronRow({ job, onToggle, onRun, onDelete, onEdit, onFetchRuns }: {
 
   const name = job.name || job.label || job.id;
   const isSuccess = job.lastStatus === 'success' || job.lastStatus === 'ok' || job.lastStatus === 'finished';
+  // Detect delivery-only failures: task ran but delivery failed
+  const isDeliveryFailure = !isSuccess && job.lastError?.includes('Channel is required')
+    || (!isSuccess && job.lastDeliveryStatus === 'error' && job.lastError?.includes('channel'))
+    || (!isSuccess && job.lastError?.includes('delivery'));
+  const taskSucceeded = isSuccess || isDeliveryFailure;
 
   return (
     <div className="border-b border-border/40">
@@ -128,9 +133,15 @@ function CronRow({ job, onToggle, onRun, onDelete, onEdit, onFetchRuns }: {
             <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
               <span>Last run: {relativeTime(job.lastRun)}</span>
               {job.lastStatus && (
-                <span className={`flex items-center gap-0.5 ${isSuccess ? 'text-green' : 'text-red'}`}>
-                  — {isSuccess ? <CheckCircle size={9} /> : <XCircle size={9} />} {job.lastStatus}
-                </span>
+                isDeliveryFailure ? (
+                  <span className="flex items-center gap-0.5 text-orange" title="Task completed but delivery failed">
+                    — <CheckCircle size={9} className="text-green" /> <AlertTriangle size={9} /> delivery failed
+                  </span>
+                ) : (
+                  <span className={`flex items-center gap-0.5 ${isSuccess ? 'text-green' : 'text-red'}`}>
+                    — {isSuccess ? <CheckCircle size={9} /> : <XCircle size={9} />} {job.lastStatus}
+                  </span>
+                )
               )}
             </div>
           )}
@@ -142,9 +153,14 @@ function CronRow({ job, onToggle, onRun, onDelete, onEdit, onFetchRuns }: {
                 <span>Running…</span>
               </div>
             )}
-            {job.lastError && !isSuccess && !running && (
+            {job.lastError && !taskSucceeded && !running && (
               <div className="text-[10px] text-red/70 mt-0.5 truncate" title={job.lastError}>
                 {job.lastError}
+              </div>
+            )}
+            {isDeliveryFailure && !running && (
+              <div className="text-[10px] text-orange/70 mt-0.5 truncate" title={job.lastError}>
+                Delivery failed — check channel config in cron settings
               </div>
             )}
           </div>

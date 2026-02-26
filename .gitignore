@@ -40,3 +40,4 @@ tts-config.json
 voice-phrases.json
 coverage/
 .test-tasks/
+src/test/*.js

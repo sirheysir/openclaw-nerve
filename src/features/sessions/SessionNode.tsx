@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { PROGRESS_BAR_TRANSITION } from '@/lib/progress-colors';
 import { getStatusBadgeText, getStatusBadgeClasses } from './statusUtils';
-import { ChevronRight, ChevronDown, EllipsisVertical, PenLine } from 'lucide-react';
+import { ChevronRight, ChevronDown, EllipsisVertical, PenLine, Timer, CornerDownRight } from 'lucide-react';
 import { SessionInfoPanel } from './SessionInfoPanel';
 
 // Pre-defined color configs to avoid object creation during render
@@ -258,8 +258,8 @@ export const SessionNode = memo(function SessionNode({
               "text-[10px] font-bold flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap cursor-help",
               isCronRun ? "text-muted-foreground font-normal" : "text-foreground"
             )}>
-              {isCron && <span className="text-purple mr-1" title="Cron job">⏰</span>}
-              {isCronRun && <span className="text-purple/60 mr-1" title="Cron run">↳</span>}
+              {isCron && <Timer size={11} className="text-purple mr-1 inline shrink-0" aria-label="Cron job" />}
+              {isCronRun && <CornerDownRight size={10} className="text-purple/60 mr-1 inline shrink-0" aria-label="Cron run" />}
               {label}
             </span>
           </SessionInfoPanel>

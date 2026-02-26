@@ -36,14 +36,27 @@ const INTERVAL_PRESETS = [
   { value: '86400000', label: '24 hours' },
 ];
 
-const DELIVERY_CHANNELS = [
-  { value: '', label: 'Default' },
-  { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'telegram', label: 'Telegram' },
-  { value: 'discord', label: 'Discord' },
-  { value: 'signal', label: 'Signal' },
-  { value: 'slack', label: 'Slack' },
-];
+const CHANNEL_LABELS: Record<string, string> = {
+  whatsapp: 'WhatsApp',
+  telegram: 'Telegram',
+  discord: 'Discord',
+  signal: 'Signal',
+  slack: 'Slack',
+  irc: 'IRC',
+  googlechat: 'Google Chat',
+  imessage: 'iMessage',
+};
+
+const CHANNEL_PLACEHOLDERS: Record<string, string> = {
+  whatsapp: '+905551234567',
+  telegram: '-100123456789 or @username',
+  discord: 'channel-id',
+  signal: '+905551234567',
+  slack: '#channel or @user',
+  irc: '#channel',
+  googlechat: 'space-id',
+  imessage: '+905551234567',
+};
 
 /** Strip the auto-appended delivery instruction from a prompt for clean editing */
 function stripDeliveryInstruction(msg: string): string {
@@ -73,15 +86,16 @@ export function CronDialog({ open, onClose, onSubmit, mode, initialData }: CronD
   const [payloadKind, setPayloadKind] = useState<PayloadKind>(() => prefill?.payloadKind || 'agentTurn');
   const [message, setMessage] = useState(() => prefill ? stripDeliveryInstruction(prefill.message || '') : '');
   const [model, setModel] = useState(() => prefill?.model || '');
-  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>(() => prefill?.delivery?.mode === 'none' ? 'none' : 'announce');
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>(() => prefill?.delivery?.mode === 'announce' ? 'announce' : 'none');
   const [deliveryChannel, setDeliveryChannel] = useState(() => prefill?.delivery?.channel || '');
   const [deliveryTo, setDeliveryTo] = useState(() => prefill?.delivery?.to || '');
   const [models, setModels] = useState<{ value: string; label: string }[]>([]);
+  const [availableChannels, setAvailableChannels] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const dialogRef = useRef<HTMLDialogElement>(null);
 
-  // Fetch available models when dialog opens
+  // Fetch available models and configured channels when dialog opens
   useEffect(() => {
     if (!open) return;
     fetch('/api/gateway/models')
@@ -101,6 +115,14 @@ export function CronDialog({ open, onClose, onSubmit, mode, initialData }: CronD
       .catch(() => {
         setModels([{ value: '', label: 'Default model' }]);
       });
+    fetch('/api/channels')
+      .then(r => r.json())
+      .then((data: { channels?: string[] }) => {
+        const ch = data.channels || [];
+        setAvailableChannels(ch);
+      })
+      .catch(() => setAvailableChannels([]));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on open
   }, [open]);
 
   // Form state is initialized from props via useState initializers above.
@@ -347,40 +369,57 @@ export function CronDialog({ open, onClose, onSubmit, mode, initialData }: CronD
           {payloadKind === 'agentTurn' && (
             <>
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Delivery</span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">When done</span>
                 <InlineSelect inline
                   value={deliveryMode}
                   onChange={v => setDeliveryMode(v as DeliveryMode)}
                   options={[
-                    { value: 'announce', label: 'Announce result' },
-                    { value: 'none', label: 'Silent (no delivery)' },
+                    { value: 'announce', label: 'Send result to a channel' },
+                    { value: 'none', label: 'Run silently' },
                   ]}
                   ariaLabel="Delivery mode"
                 />
+                {deliveryMode === 'none' && (
+                  <span className="text-[9px] text-muted-foreground/60 mt-0.5">Result stays in the session transcript — check it anytime in Nerve.</span>
+                )}
               </div>
 
               {deliveryMode === 'announce' && (
                 <div className="flex flex-col gap-2">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Channel</span>
-                    <InlineSelect inline
-                      value={deliveryChannel}
-                      onChange={setDeliveryChannel}
-                      options={DELIVERY_CHANNELS}
-                      ariaLabel="Delivery channel"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="cron-deliver-to" className="text-[10px] uppercase tracking-wider text-muted-foreground">Deliver to (phone/JID/chat ID)</label>
-                    <input
-                      id="cron-deliver-to"
-                      type="text"
-                      value={deliveryTo}
-                      onChange={e => setDeliveryTo(e.target.value)}
-                      placeholder="+905551234567 or -100123456789:topic:42…"
-                      className="font-mono text-[11px] bg-background border border-border/60 text-foreground px-2 py-1.5 outline-none focus:border-purple focus-visible:ring-2 focus-visible:ring-purple/50 focus-visible:ring-offset-0"
-                    />
-                  </div>
+                  {availableChannels.length === 0 ? (
+                    <div className="text-[10px] text-orange">
+                      No messaging channels configured. Set up a channel in OpenClaw config first, or switch to "Run silently".
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Send via</span>
+                      <InlineSelect inline
+                        value={deliveryChannel}
+                        onChange={setDeliveryChannel}
+                        options={[
+                          { value: '', label: 'Select channel…' },
+                          ...availableChannels.map(ch => ({
+                            value: ch,
+                            label: CHANNEL_LABELS[ch] || ch,
+                          })),
+                        ]}
+                        ariaLabel="Delivery channel"
+                      />
+                    </div>
+                  )}
+                  {deliveryChannel && (
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="cron-deliver-to" className="text-[10px] uppercase tracking-wider text-muted-foreground">Send to</label>
+                      <input
+                        id="cron-deliver-to"
+                        type="text"
+                        value={deliveryTo}
+                        onChange={e => setDeliveryTo(e.target.value)}
+                        placeholder={CHANNEL_PLACEHOLDERS[deliveryChannel] || 'recipient ID'}
+                        className="font-mono text-[11px] bg-background border border-border/60 text-foreground px-2 py-1.5 outline-none focus:border-purple focus-visible:ring-2 focus-visible:ring-purple/50 focus-visible:ring-offset-0"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </>

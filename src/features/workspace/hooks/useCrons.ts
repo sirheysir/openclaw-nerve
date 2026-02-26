@@ -31,6 +31,7 @@ export interface CronJob {
   lastRun?: string;
   lastStatus?: string;
   lastError?: string;
+  lastDeliveryStatus?: string;
 }
 
 export interface CronRun {
@@ -72,6 +73,7 @@ function normalizeJob(j: Record<string, unknown>): CronJob {
       : undefined,
     lastStatus: state.lastStatus as string | undefined,
     lastError: state.lastError as string | undefined,
+    lastDeliveryStatus: state.lastDeliveryStatus as string | undefined,
   };
 }
 
