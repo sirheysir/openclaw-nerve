@@ -165,7 +165,6 @@ function createGatewayRelay(
 
   // ─── Keepalive: ping both sides every 30s, kill dead connections ────────
   const PING_INTERVAL = 30_000;
-  const PONG_TIMEOUT = 10_000;
   let clientAlive = true;
   let gatewayAlive = true;
 

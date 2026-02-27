@@ -274,8 +274,6 @@ describe('ws-proxy', () => {
 // These are added in a separate describe block outside the main one
 // since the main describe block is already closed.
 
-import { randomUUID } from 'node:crypto';
-
 describe('ws-proxy observability', () => {
   let mockGw2: MockGateway;
   let proxyServer2: Server;

@@ -17,7 +17,7 @@ RWD_PIDS=()
 cleanup() {
   # Kill any lingering run_with_dots background processes
   for pid in "${RWD_PIDS[@]}"; do
-    kill "$pid" 2>/dev/null || true
+    kill -0 "$pid" 2>/dev/null && kill "$pid" 2>/dev/null || true
   done
   # Remove temp files and directories (stderr captures, build backups)
   for f in "${TEMP_FILES[@]}"; do
@@ -81,8 +81,11 @@ run_with_dots() {
     printf "."
     sleep 1
   done
-  wait "$pid"
-  RWD_EXIT=$?
+  if wait "$pid"; then
+    RWD_EXIT=0
+  else
+    RWD_EXIT=$?
+  fi
   echo ""
   if [[ $RWD_EXIT -ne 0 && -s "$stderr_file" ]]; then
     echo -e "  ${RAIL}  ${RED}stderr:${NC}"
