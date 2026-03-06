@@ -106,6 +106,9 @@ export const config = {
   passwordHash: process.env.NERVE_PASSWORD_HASH || '',
   sessionSecret: process.env.NERVE_SESSION_SECRET || '',
   sessionTtlMs: Number(process.env.NERVE_SESSION_TTL || 30 * 24 * 60 * 60 * 1000), // 30 days
+
+  // Feature flags
+  kanbanEnabled: (process.env.NERVE_DISABLE_KANBAN || 'false').toLowerCase() !== 'true',
 } as const;
 
 // ─── Typed config mutation ──────────────────────────────────────────────────
@@ -190,6 +193,9 @@ export function printStartupBanner(version: string): void {
   console.log(`  Gateway: ${config.gatewayUrl}`);
   if (config.auth) {
     console.log('  \x1b[32m🔒 Authentication enabled\x1b[0m');
+  }
+  if (!config.kanbanEnabled) {
+    console.log('  \x1b[33mℹ Kanban disabled\x1b[0m');
   }
 }
 

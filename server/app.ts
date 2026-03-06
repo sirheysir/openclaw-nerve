@@ -119,8 +119,11 @@ const routes = [
   codexLimitsRoutes, claudeCodeLimitsRoutes, versionRoutes, versionCheckRoutes,
   gatewayRoutes, connectDefaultsRoutes,
   workspaceRoutes, cronsRoutes, sessionsRoutes, skillsRoutes, filesRoutes, apiKeysRoutes,
-  voicePhrasesRoutes, fileBrowserRoutes, channelsRoutes, kanbanRoutes,
+  voicePhrasesRoutes, fileBrowserRoutes, channelsRoutes,
 ];
+if (config.kanbanEnabled) {
+  routes.push(kanbanRoutes);
+}
 for (const route of routes) app.route('/', route);
 
 // ── Static files + SPA fallback ──────────────────────────────────────

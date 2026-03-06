@@ -5,7 +5,7 @@
  * Tab action buttons (add, refresh) render in the tab bar header.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { WorkspaceTabs, type TabId } from './WorkspaceTabs';
 import { MemoryTab, CronsTab, ConfigTab, SkillsTab } from './tabs';
 import { useCrons } from './hooks/useCrons';
@@ -65,25 +65,40 @@ function getInitialTab(): TabId {
   return 'memory';
 }
 
+function coerceTab(tab: TabId, kanbanEnabled: boolean): TabId {
+  if (!kanbanEnabled && tab === 'kanban') return 'memory';
+  return tab;
+}
+
 interface WorkspacePanelProps {
   memories: Memory[];
   onRefreshMemories: (signal?: AbortSignal) => void | Promise<void>;
   memoriesLoading?: boolean;
   /** Render in compact dropdown mode (chat-first topbar panel). */
   compact?: boolean;
+  /** Enable/disable built-in kanban UI. */
+  kanbanEnabled?: boolean;
   /** Switch the app to full kanban board view. */
   onOpenBoard?: () => void;
   /** Open a specific task in the full board view. */
   onOpenTask?: (taskId: string) => void;
 }
 
-export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, compact = false, onOpenBoard, onOpenTask }: WorkspacePanelProps) {
-  const [activeTab, setActiveTab] = useState<TabId>(getInitialTab);
+export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, compact = false, kanbanEnabled = true, onOpenBoard, onOpenTask }: WorkspacePanelProps) {
+  const [activeTab, setActiveTab] = useState<TabId>(() => coerceTab(getInitialTab(), kanbanEnabled));
   const { activeCount } = useCrons();
 
   const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(() => new Set([activeTab]));
 
+  // Recover from stale localStorage tab when kanban is disabled
+  useEffect(() => {
+    if (!kanbanEnabled && activeTab === 'kanban') {
+      setActiveTab('memory');
+    }
+  }, [kanbanEnabled, activeTab]);
+
   const handleTabChange = useCallback((tab: TabId) => {
+    tab = coerceTab(tab, kanbanEnabled);
     setActiveTab(tab);
     setVisitedTabs(prev => {
       if (prev.has(tab)) return prev;
@@ -94,7 +109,7 @@ export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, c
     try {
       localStorage.setItem(STORAGE_KEY, tab);
     } catch { /* ignore */ }
-  }, []);
+  }, [kanbanEnabled]);
 
   return (
     <div className={compact ? 'h-[70vh] max-h-[70vh] flex flex-col min-h-0' : 'h-full flex flex-col min-h-0'}>
@@ -102,7 +117,7 @@ export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, c
         activeTab={activeTab}
         onTabChange={handleTabChange}
         cronCount={activeCount || undefined}
-        kanbanCount={undefined}
+        kanbanEnabled={kanbanEnabled}
       />
       <div className="flex-1 min-h-0 overflow-hidden">
         <div className={activeTab === 'memory' ? 'h-full' : 'hidden'} hidden={activeTab !== 'memory'} role="tabpanel" id="workspace-tabpanel-memory" aria-labelledby="workspace-tab-memory">
@@ -123,14 +138,16 @@ export function WorkspacePanel({ memories, onRefreshMemories, memoriesLoading, c
         <div className={activeTab === 'config' ? 'h-full' : 'hidden'} hidden={activeTab !== 'config'} role="tabpanel" id="workspace-tabpanel-config" aria-labelledby="workspace-tab-config">
           {visitedTabs.has('config') && <ConfigWithSkills />}
         </div>
-        <div className={activeTab === 'kanban' ? 'h-full' : 'hidden'} hidden={activeTab !== 'kanban'} role="tabpanel" id="workspace-tabpanel-kanban" aria-labelledby="workspace-tab-kanban">
-          {visitedTabs.has('kanban') && (
-            <KanbanQuickView
-              onOpenBoard={onOpenBoard ?? (() => {})}
-              onOpenTask={(task) => onOpenTask ? onOpenTask(task.id) : onOpenBoard?.()}
-            />
-          )}
-        </div>
+        {kanbanEnabled && (
+          <div className={activeTab === 'kanban' ? 'h-full' : 'hidden'} hidden={activeTab !== 'kanban'} role="tabpanel" id="workspace-tabpanel-kanban" aria-labelledby="workspace-tab-kanban">
+            {visitedTabs.has('kanban') && (
+              <KanbanQuickView
+                onOpenBoard={onOpenBoard ?? (() => {})}
+                onOpenTask={(task) => onOpenTask ? onOpenTask(task.id) : onOpenBoard?.()}
+              />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

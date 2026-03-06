@@ -47,6 +47,7 @@ const args = process.argv.slice(2);
 const isHelp = args.includes('--help') || args.includes('-h');
 const isCheck = args.includes('--check');
 const isDefaults = args.includes('--defaults');
+const disableKanbanRequested = args.includes('--disable-kanban');
 
 function detectPrimaryIpv4(): string | null {
   const nets = networkInterfaces();
@@ -165,7 +166,7 @@ function copyDirSync(src: string, dest: string): void {
   }
 }
 
-function installBundledSkills(): void {
+function installBundledSkills(disableKanban = false): void {
   if (!existsSync(SKILLS_SRC)) return;
 
   let installed = 0;
@@ -178,6 +179,8 @@ function installBundledSkills(): void {
 
   for (const skillName of entries) {
     try {
+      if (disableKanban && skillName === 'nerve-kanban') continue;
+
       const skillSrc = join(SKILLS_SRC, skillName);
       if (!lstatSync(skillSrc).isDirectory()) continue;
       if (!existsSync(join(skillSrc, 'SKILL.md'))) continue;
@@ -203,9 +206,10 @@ async function main(): Promise<void> {
   Usage: npm run setup [options]
 
   Options:
-    --check      Validate existing .env config and test gateway connection
-    --defaults   Non-interactive setup using auto-detected values
-    --help, -h   Show this help message
+    --check            Validate existing .env config and test gateway connection
+    --defaults         Non-interactive setup using auto-detected values
+    --disable-kanban   Disable built-in kanban board + skill install
+    --help, -h         Show this help message
 
   The setup wizard guides you through 6 steps:
     1. Gateway Connection — connect to your OpenClaw gateway
@@ -216,9 +220,10 @@ async function main(): Promise<void> {
     6. Advanced Settings  — custom file paths (most users skip this)
 
   Examples:
-    npm run setup               # Interactive setup
-    npm run setup -- --check    # Validate existing config
-    npm run setup -- --defaults # Auto-configure with detected values
+    npm run setup                          # Interactive setup
+    npm run setup -- --check               # Validate existing config
+    npm run setup -- --defaults            # Auto-configure with detected values
+    npm run setup -- --disable-kanban      # Disable built-in kanban
 `);
     return;
   }
@@ -293,7 +298,7 @@ async function main(): Promise<void> {
   success('Configuration written to .env');
 
   // Install bundled agent skills
-  installBundledSkills();
+  installBundledSkills(config.NERVE_DISABLE_KANBAN === 'true');
 
   printSummary(config);
 
@@ -831,6 +836,11 @@ async function collectInteractive(
     if (existing.USAGE_FILE) config.USAGE_FILE = existing.USAGE_FILE;
   }
 
+  // Optional feature flag
+  if (disableKanbanRequested) {
+    config.NERVE_DISABLE_KANBAN = 'true';
+  }
+
   return config;
 }
 
@@ -855,6 +865,7 @@ function printSummary(config: EnvConfig): void {
 
   const hostLabel = host === '127.0.0.1' ? '127.0.0.1 (local only)' : `${host} (network)`;
   const authLabel = config.NERVE_AUTH === 'true' ? '🔒 Enabled' : 'Disabled';
+  const kanbanLabel = config.NERVE_DISABLE_KANBAN === 'true' ? 'Disabled' : 'Enabled';
 
   if (process.env.NERVE_INSTALLER) {
     // Rail-style summary — stays inside the installer's visual flow
@@ -869,6 +880,7 @@ function printSummary(config: EnvConfig): void {
     console.log(`${r}  \x1b[2mTTS${' '.repeat(8)}\x1b[0m${ttsProvider}`);
     console.log(`${r}  \x1b[2mHost${' '.repeat(7)}\x1b[0m${hostLabel}`);
     console.log(`${r}  \x1b[2mAuth${' '.repeat(7)}\x1b[0m${authLabel}`);
+    console.log(`${r}  \x1b[2mKanban${' '.repeat(5)}\x1b[0m${kanbanLabel}`);
   } else {
     // Standalone mode — boxed summary
     console.log('');
@@ -882,6 +894,7 @@ function printSummary(config: EnvConfig): void {
     console.log(`  \x1b[2m│\x1b[0m  TTS        ${ttsProvider.padEnd(28)}\x1b[2m│\x1b[0m`);
     console.log(`  \x1b[2m│\x1b[0m  Host       ${hostLabel.padEnd(28)}\x1b[2m│\x1b[0m`);
     console.log(`  \x1b[2m│\x1b[0m  Auth       ${authLabel.padEnd(28)}\x1b[2m│\x1b[0m`);
+    console.log(`  \x1b[2m│\x1b[0m  Kanban     ${kanbanLabel.padEnd(28)}\x1b[2m│\x1b[0m`);
     console.log('  \x1b[2m└─────────────────────────────────────────┘\x1b[0m');
   }
 }
@@ -1047,6 +1060,10 @@ async function runDefaults(existing: EnvConfig): Promise<void> {
     }
   }
 
+  if (disableKanbanRequested) {
+    config.NERVE_DISABLE_KANBAN = 'true';
+  }
+
   // Write
   if (existsSync(ENV_PATH)) {
     const backupPath = backupExistingEnv(ENV_PATH);
@@ -1057,7 +1074,7 @@ async function runDefaults(existing: EnvConfig): Promise<void> {
   success('Configuration written to .env');
 
   // Install bundled agent skills
-  installBundledSkills();
+  installBundledSkills(config.NERVE_DISABLE_KANBAN === 'true');
 
   printSummary(config);
 

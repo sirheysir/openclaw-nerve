@@ -36,6 +36,8 @@ REPO="https://github.com/daggerhashimoto/openclaw-nerve.git"
 NODE_MIN=22
 SKIP_SETUP=false
 DRY_RUN=false
+DISABLE_KANBAN=false
+SETUP_KANBAN_FLAG=""
 GATEWAY_TOKEN=""
 ENV_MISSING=false
 
@@ -221,6 +223,7 @@ while [[ $# -gt 0 ]]; do
     --repo)      [[ $# -ge 2 ]] || { echo "Missing value for --repo"; exit 1; }; REPO="$2"; shift 2 ;;
     --skip-setup) SKIP_SETUP=true; shift ;;
     --dry-run)    DRY_RUN=true; shift ;;
+    --disable-kanban) DISABLE_KANBAN=true; SETUP_KANBAN_FLAG="--disable-kanban"; shift ;;
     --gateway-token) [[ $# -ge 2 ]] || { echo "Missing value for --gateway-token"; exit 1; }; GATEWAY_TOKEN="$2"; shift 2 ;;
     --help|-h)
       echo "Nerve Installer"
@@ -231,6 +234,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --branch <name>    Install from a branch (dev override; bypasses release mode)"
       echo "  --repo <url>       Git repo URL"
       echo "  --skip-setup       Skip the interactive setup wizard"
+      echo "  --disable-kanban   Disable built-in kanban board + skill install"
       echo "  --gateway-token <t> Gateway token (for non-interactive installs)"
       echo "  --dry-run          Simulate the install without changing anything"
       echo "  --help             Show this help"
@@ -810,6 +814,9 @@ GATEWAY_URL=http://127.0.0.1:${gw_port}
 GATEWAY_TOKEN=${gw_token}
 PORT=${nerve_port}
 ENVEOF
+    if [[ "$DISABLE_KANBAN" == "true" ]]; then
+      echo "NERVE_DISABLE_KANBAN=true" >> .env
+    fi
     ok "Generated .env from OpenClaw gateway config"
   else
     warn "Cannot auto-generate .env — no gateway token found"
@@ -844,7 +851,7 @@ else
         if read -r answer < /dev/tty 2>/dev/null; then
           if [[ "$(echo "$answer" | tr "[:upper:]" "[:lower:]")" == "y" ]]; then
             echo ""
-            NERVE_INSTALLER=1 npm run setup < /dev/tty 2>/dev/null || {
+            NERVE_INSTALLER=1 npm run setup -- ${SETUP_KANBAN_FLAG} < /dev/tty 2>/dev/null || {
               warn "Setup wizard failed (no TTY?) — run ${CYAN}npm run setup${NC} manually"
             }
           else
@@ -854,7 +861,7 @@ else
           warn "Cannot read input — run ${CYAN}npm run setup${NC} manually to reconfigure"
         fi
       else
-        NERVE_INSTALLER=1 npm run setup < /dev/tty 2>/dev/null || {
+        NERVE_INSTALLER=1 npm run setup -- ${SETUP_KANBAN_FLAG} < /dev/tty 2>/dev/null || {
           warn "Setup wizard failed — attempting auto-config from gateway..."
           generate_env_from_gateway
         }

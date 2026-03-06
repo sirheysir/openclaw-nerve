@@ -32,6 +32,7 @@ interface SessionContextValue {
   agentLogEntries: AgentLogEntry[];
   eventEntries: EventEntry[];
   agentName: string;
+  kanbanEnabled: boolean;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -45,6 +46,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [eventEntries, setEventEntries] = useState<EventEntry[]>([]);
   const [agentStatus, setAgentStatus] = useState<Record<string, GranularAgentState>>({});
   const [agentName, setAgentName] = useState('Agent');
+  const [kanbanEnabled, setKanbanEnabled] = useState(true);
   const [unreadSessionKeys, setUnreadSessionKeys] = useState<Set<string>>(new Set());
   const logStateRef = useRef<Record<string, boolean>>({});
   const toolSeenRef = useRef<Map<string, number>>(new Map());
@@ -93,6 +95,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         if (data.agentName) {
           setAgentName(data.agentName);
+        }
+        if (typeof data.kanbanEnabled === 'boolean') {
+          setKanbanEnabled(data.kanbanEnabled);
         }
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
@@ -638,11 +643,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     agentLogEntries,
     eventEntries,
     agentName,
+    kanbanEnabled,
   }), [
     sessions, sessionsLoading, currentSession, setCurrentSession, busyState, agentStatus,
     unreadSessions, markSessionRead,
     abortSession, refreshSessions, deleteSession, spawnAgent, renameSession,
-    updateSessionFromEvent, agentLogEntries, eventEntries, agentName,
+    updateSessionFromEvent, agentLogEntries, eventEntries, agentName, kanbanEnabled,
   ]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

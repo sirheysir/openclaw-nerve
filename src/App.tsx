@@ -55,7 +55,7 @@ export default function App({ onLogout }: AppProps) {
     sessions, sessionsLoading, currentSession, setCurrentSession,
     busyState, agentStatus, unreadSessions, refreshSessions, deleteSession, abortSession, spawnAgent, renameSession,
     agentLogEntries, eventEntries,
-    agentName,
+    agentName, kanbanEnabled,
   } = useSessionContext();
 
   // Chat state
@@ -161,13 +161,23 @@ export default function App({ onLogout }: AppProps) {
   });
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
   const setViewMode = useCallback((mode: ViewMode) => {
+    // Guard when kanban is disabled by server feature flag
+    if (!kanbanEnabled && mode === 'kanban') mode = 'chat';
     setViewModeRaw(mode);
     try { localStorage.setItem('nerve:viewMode', mode); } catch { /* ignore */ }
-  }, []);
+  }, [kanbanEnabled]);
   const openTaskInBoard = useCallback((taskId: string) => {
+    if (!kanbanEnabled) return;
     setPendingTaskId(taskId);
     setViewMode('kanban');
-  }, [setViewMode]);
+  }, [kanbanEnabled, setViewMode]);
+
+  // Recover from stale localStorage mode when kanban is disabled
+  useEffect(() => {
+    if (!kanbanEnabled && viewMode === 'kanban') {
+      setViewMode('chat');
+    }
+  }, [kanbanEnabled, viewMode, setViewMode]);
 
   // Build command list with stable references
   const openSettings = useCallback(() => setSettingsOpen(true), []);
@@ -195,10 +205,10 @@ export default function App({ onLogout }: AppProps) {
     onOpenSettings: openSettings,
     onRefreshSessions: refreshSessions,
     onRefreshMemory: refreshMemories,
-    onSetViewMode: setViewMode,
+    onSetViewMode: kanbanEnabled ? setViewMode : undefined,
   }), [openSpawnDialog, handleReset, toggleSound, handleAbort, openSettings, openSearch,
     setTheme, setFont, setTtsProvider, handleToggleWakeWord, toggleEvents, toggleLog, toggleTelemetry,
-    refreshSessions, refreshMemories, setViewMode]);
+    refreshSessions, refreshMemories, kanbanEnabled, setViewMode]);
 
   // Keyboard shortcut handlers with useCallback
   const handleOpenPalette = useCallback(() => setPaletteOpen(true), []);
@@ -383,7 +393,7 @@ export default function App({ onLogout }: AppProps) {
         </div>
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-background">
           <PanelErrorBoundary name="Workspace">
-            <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} />
+            <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} kanbanEnabled={kanbanEnabled} onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} />
           </PanelErrorBoundary>
         </div>
       </div>
@@ -416,7 +426,7 @@ export default function App({ onLogout }: AppProps) {
   const compactWorkspacePanel = (
     <Suspense fallback={<div className="p-4 text-muted-foreground text-xs">Loading workspace…</div>}>
       <PanelErrorBoundary name="Workspace">
-        <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} compact onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} />
+        <WorkspacePanel memories={memories} onRefreshMemories={refreshMemories} memoriesLoading={memoriesLoading} compact kanbanEnabled={kanbanEnabled} onOpenBoard={() => setViewMode('kanban')} onOpenTask={openTaskInBoard} />
       </PanelErrorBoundary>
     </Suspense>
   );
@@ -486,7 +496,7 @@ export default function App({ onLogout }: AppProps) {
         sessionsPanel={compactSessionsPanel}
         workspacePanel={compactWorkspacePanel}
         viewMode={viewMode}
-        onViewModeChange={setViewMode}
+        onViewModeChange={kanbanEnabled ? setViewMode : undefined}
       />
       
       <PanelErrorBoundary name="Settings">
@@ -526,7 +536,7 @@ export default function App({ onLogout }: AppProps) {
       
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* File tree — far left, collapsible; hidden (not unmounted) in kanban to preserve state */}
-        <div className={viewMode === 'kanban' ? 'hidden' : 'h-full min-h-0'}>
+        <div className={kanbanEnabled && viewMode === 'kanban' ? 'hidden' : 'h-full min-h-0'}>
           <PanelErrorBoundary name="File Explorer">
             <FileTreePanel
               onOpenFile={openFile}
@@ -543,7 +553,7 @@ export default function App({ onLogout }: AppProps) {
          * in-progress voice recording / STT transcription survives tab switches.
          * See: https://github.com/.../issues/64
          */}
-        {viewMode === 'kanban' && (
+        {kanbanEnabled && viewMode === 'kanban' && (
           <div className="flex-1 flex flex-col min-w-0 min-h-0 boot-panel">
             <Suspense fallback={<div className="flex-1 flex items-center justify-center text-muted-foreground text-xs bg-background">Loading…</div>}>
               <KanbanPanel initialTaskId={pendingTaskId} onInitialTaskConsumed={() => setPendingTaskId(null)} />
@@ -551,11 +561,11 @@ export default function App({ onLogout }: AppProps) {
           </div>
         )}
         {isCompactLayout ? (
-          <div className={`flex-1 min-w-0 min-h-0 boot-panel${viewMode === 'kanban' ? ' hidden' : ''}`}>
+          <div className={`flex-1 min-w-0 min-h-0 boot-panel${kanbanEnabled && viewMode === 'kanban' ? ' hidden' : ''}`}>
             {chatContent}
           </div>
         ) : (
-          <div style={{ display: viewMode === 'kanban' ? 'none' : 'contents' }}>
+          <div style={{ display: kanbanEnabled && viewMode === 'kanban' ? 'none' : 'contents' }}>
             <ResizablePanels
               leftPercent={panelRatio}
               onResize={setPanelRatio}

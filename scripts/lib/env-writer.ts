@@ -30,6 +30,7 @@ export interface EnvConfig {
   NERVE_PASSWORD_HASH?: string;
   NERVE_SESSION_SECRET?: string;
   NERVE_SESSION_TTL?: string;
+  NERVE_DISABLE_KANBAN?: string;
 }
 
 /** Default values (matching server/lib/config.ts). */
@@ -119,6 +120,13 @@ export function generateEnvContent(config: EnvConfig): string {
   if (advLines.length > 0) {
     lines.push('# Advanced');
     lines.push(...advLines);
+    lines.push('');
+  }
+
+  // Feature flags
+  if (config.NERVE_DISABLE_KANBAN === 'true') {
+    lines.push('# Feature Flags');
+    lines.push('NERVE_DISABLE_KANBAN=true');
     lines.push('');
   }
 

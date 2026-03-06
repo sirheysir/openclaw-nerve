@@ -26,22 +26,25 @@ interface WorkspaceTabsProps {
   onTabChange: (tab: TabId) => void;
   cronCount?: number;
   kanbanCount?: number;
+  kanbanEnabled?: boolean;
 }
 
 /** Horizontal tab bar for workspace sections (Memory, Crons, Skills, Config). */
-export function WorkspaceTabs({ activeTab, onTabChange, cronCount, kanbanCount }: WorkspaceTabsProps) {
+export function WorkspaceTabs({ activeTab, onTabChange, cronCount, kanbanCount, kanbanEnabled = true }: WorkspaceTabsProps) {
+  const tabs = kanbanEnabled ? TABS : TABS.filter((t) => t.id !== 'kanban');
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    const currentIndex = TABS.findIndex(t => t.id === activeTab);
+    const currentIndex = tabs.findIndex(t => t.id === activeTab);
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
       e.preventDefault();
-      const next = (currentIndex + 1) % TABS.length;
-      onTabChange(TABS[next].id);
+      const next = (currentIndex + 1) % tabs.length;
+      onTabChange(tabs[next].id);
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
       e.preventDefault();
-      const prev = (currentIndex - 1 + TABS.length) % TABS.length;
-      onTabChange(TABS[prev].id);
+      const prev = (currentIndex - 1 + tabs.length) % tabs.length;
+      onTabChange(tabs[prev].id);
     }
-  }, [activeTab, onTabChange]);
+  }, [activeTab, onTabChange, tabs]);
 
   return (
     <div
@@ -51,7 +54,7 @@ export function WorkspaceTabs({ activeTab, onTabChange, cronCount, kanbanCount }
       onKeyDown={handleKeyDown}
     >
       <div className="flex items-center gap-0 flex-1 min-w-0">
-      {TABS.map((tab, i) => {
+      {tabs.map((tab, i) => {
         const isActive = tab.id === activeTab;
         const badge = tab.id === 'crons' && cronCount ? cronCount
           : tab.id === 'kanban' && kanbanCount ? kanbanCount
